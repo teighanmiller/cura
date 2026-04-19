@@ -33,8 +33,8 @@ impl From<&Vec<String>> for CalenderEvent {
             name: iter.next().unwrap().to_string(),
             description: iter.next().unwrap().to_string(),
             date: convert_date(iter.next().unwrap()).unwrap(),
-            start_time: Some(convert_time(iter.next().unwrap()).unwrap()),
-            end_time: Some(convert_time(iter.next().unwrap()).unwrap()),
+            start_time: iter.next().map(|t| convert_time(t).unwrap()),
+            end_time: iter.next().map(|t| convert_time(t).unwrap()),
         }
     }
 }
@@ -212,8 +212,7 @@ pub async fn get_calendar_service(command: &String, arguments: &Vec<String>) {
         "event_list" => get_events(hub, arguments).await,
         "event" => todo!(), //get_event_details(hub, arguments).await,
         "new_event" => insert_new_event(hub, arguments).await,
-        "series" => todo!(),
-        "is_free" => todo!(), //may not need to implement
+        "series" => todo!(), // create a repeating event
         _ => panic!("unknown command! Please use one of: {:?}", EVENT_LIST),
     };
 

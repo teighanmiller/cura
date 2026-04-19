@@ -21,8 +21,8 @@ async fn main() {
     }
     .await;
 
-    println!(
-        "tool: {:?}, command: {:?}, arguments: {:?}",
-        args.tool, args.command, args.arguments
-    )
+    // println!(
+    //     "tool: {:?}, command: {:?}, arguments: {:?}",
+    //     args.tool, args.command, args.arguments
+    // )
 }
