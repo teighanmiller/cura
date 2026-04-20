@@ -1,12 +1,12 @@
 use crate::auth;
-use crate::time::{convert_date, convert_time, get_current_timezone, get_period};
-use chrono::{Local, NaiveDate, NaiveTime};
+use crate::time::{convert_date, convert_datetime, convert_time, get_current_timezone, get_period};
+use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime};
 use google_calendar3::Error;
 use google_calendar3::api::{Event, EventDateTime, Events};
 use http::Response;
 use http_body_util::combinators::BoxBody;
 
-static EVENT_LIST: &[&str] = &["event_list"];
+static EVENT_LIST: &[&str] = &["event_list", "event_details", "new_event", "series"];
 
 type CalendarListEntryResponse = Result<
     (
@@ -17,6 +17,23 @@ type CalendarListEntryResponse = Result<
 >;
 
 type StringOutput = Result<String, Error>;
+
+struct EventQuery {
+    name: String,
+    start_time: Option<NaiveDateTime>,
+    end_time: Option<NaiveDateTime>,
+}
+
+impl From<&Vec<String>> for EventQuery {
+    fn from(v: &Vec<String>) -> Self {
+        let mut iter = v.iter();
+        EventQuery {
+            name: iter.next().unwrap().to_string(),
+            start_time: iter.next().map(|t| convert_datetime(t).unwrap()),
+            end_time: iter.next().map(|t| convert_datetime(t).unwrap()),
+        }
+    }
+}
 
 struct CalenderEvent {
     name: String,
@@ -47,6 +64,31 @@ fn event_to_string(events: Events) -> StringOutput {
         output.push_str(&formatted);
     }
     Ok(output)
+}
+
+async fn get_event(hub: auth::Hub, event_details: &Vec<String>) -> StringOutput {
+    let details = EventQuery::from(event_details);
+    if details.start_time.is_none() | details.end_time.is_none() {
+        let (_response, events) = hub
+            .events()
+            .list("primary")
+            .q(details.name.as_str())
+            .doit()
+            .await
+            .unwrap();
+        event_to_string(events)
+    } else {
+        let (_response, events) = hub
+            .events()
+            .list("primary")
+            .time_min(details.start_time.unwrap().and_utc())
+            .time_max(details.start_time.unwrap().and_utc())
+            .q(details.name.as_str())
+            .doit()
+            .await
+            .unwrap();
+        event_to_string(events)
+    }
 }
 
 async fn get_events(hub: auth::Hub, arguments: &Vec<String>) -> StringOutput {
@@ -210,7 +252,7 @@ pub async fn get_calendar_service(command: &String, arguments: &Vec<String>) {
     // All calls return a StringOutput Type
     let results = match command.as_str() {
         "event_list" => get_events(hub, arguments).await,
-        "event" => todo!(), //get_event_details(hub, arguments).await,
+        "event_details" => get_event(hub, arguments).await,
         "new_event" => insert_new_event(hub, arguments).await,
         "series" => todo!(), // create a repeating event
         _ => panic!("unknown command! Please use one of: {:?}", EVENT_LIST),

@@ -1,4 +1,4 @@
-use chrono::{DateTime, FixedOffset, NaiveDate, NaiveTime, Timelike, Utc};
+use chrono::{DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 
 pub struct Period {
     pub min_time: DateTime<Utc>,
@@ -16,6 +16,10 @@ pub fn convert_time(time: &String) -> Result<NaiveTime, chrono::ParseError> {
 
 pub fn convert_date(date: &String) -> Result<NaiveDate, chrono::ParseError> {
     NaiveDate::parse_from_str(&date, DATE_STR)
+}
+
+pub fn convert_datetime(datetime: &String) -> Result<NaiveDateTime, chrono::ParseError> {
+    NaiveDateTime::parse_from_str(&datetime, DATE_TIME_STR)
 }
 
 pub fn get_current_timezone() -> String {
@@ -60,6 +64,7 @@ fn get_utc_period(period: &Vec<String>) -> Period {
 
 fn get_day(day: DateTime<Utc>) -> Period {
     let min_time = day
+        .with_timezone(&Local)
         .with_hour(0)
         .unwrap()
         .with_minute(0)
@@ -69,6 +74,7 @@ fn get_day(day: DateTime<Utc>) -> Period {
         .with_nanosecond(0)
         .unwrap();
     let max_time = day
+        .with_timezone(&Local)
         .with_hour(23)
         .unwrap()
         .with_minute(59)
@@ -78,8 +84,8 @@ fn get_day(day: DateTime<Utc>) -> Period {
         .with_nanosecond(59)
         .unwrap();
     Period {
-        min_time: min_time,
-        max_time: max_time,
+        min_time: min_time.to_utc(),
+        max_time: max_time.to_utc(),
     }
 }
 
