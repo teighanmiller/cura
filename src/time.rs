@@ -1,17 +1,16 @@
-use chrono::{DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
 
 pub struct Period {
     pub min_time: DateTime<Utc>,
     pub max_time: DateTime<Utc>,
 }
 
-// static DATE_STR: &str = "%Y-%m-%d";
 static DATE_TIME_STR: &str = "%Y-%m-%d %H:%M:%S %z";
 static DATE_STR: &str = "%Y-%m-%d";
 static TIME_STR: &str = "%H:%M:%S";
 
 pub fn convert_time(time: &String) -> Result<NaiveTime, chrono::ParseError> {
-    NaiveTime::parse_from_str(&time, TIME_STR)
+    NaiveTime::parse_from_str(time, TIME_STR)
 }
 
 pub fn convert_date(date: &String) -> Result<NaiveDate, chrono::ParseError> {
@@ -45,9 +44,9 @@ fn get_utc(utc: &str) -> DateTime<FixedOffset> {
     }
 }
 
-fn get_utc_period(period: &Vec<String>) -> Period {
-    let first_datetime = get_utc(&period[0]);
-    let second_datetime = get_utc(&period[1]);
+fn get_utc_period(start_time: String, end_time: String) -> Period {
+    let first_datetime = get_utc(&start_time);
+    let second_datetime = get_utc(&end_time);
 
     if second_datetime > first_datetime {
         Period {
@@ -64,7 +63,6 @@ fn get_utc_period(period: &Vec<String>) -> Period {
 
 fn get_day(day: DateTime<Utc>) -> Period {
     let min_time = day
-        .with_timezone(&Local)
         .with_hour(0)
         .unwrap()
         .with_minute(0)
@@ -74,7 +72,6 @@ fn get_day(day: DateTime<Utc>) -> Period {
         .with_nanosecond(0)
         .unwrap();
     let max_time = day
-        .with_timezone(&Local)
         .with_hour(23)
         .unwrap()
         .with_minute(59)
@@ -83,10 +80,7 @@ fn get_day(day: DateTime<Utc>) -> Period {
         .unwrap()
         .with_nanosecond(59)
         .unwrap();
-    Period {
-        min_time: min_time.to_utc(),
-        max_time: max_time.to_utc(),
-    }
+    Period { min_time, max_time }
 }
 
 fn default_time() -> Period {
@@ -94,17 +88,12 @@ fn default_time() -> Period {
     get_day(now)
 }
 
-pub fn get_period(period: &Vec<String>) -> Period {
-    if period.len() == 0 {
-        println!("No dates provided, defaulting to today as time period to search.");
+pub fn get_period(args: &Vec<String>) -> Period {
+    if args.is_empty() || (args.len() == 1 && args[0] == "today") {
+        println!("Searching {} for events.", Utc::now());
         default_time()
-    } else if period.len() == 1 {
-        match period[0].as_str() {
-            "today" => default_time(),
-            _ => default_time(),
-        }
     } else {
-        get_utc_period(period)
+        get_utc_period(args[0].clone(), args[1].clone())
     }
 }
 
