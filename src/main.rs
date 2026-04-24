@@ -1,6 +1,5 @@
 use anyhow::Ok;
 use clap::{Parser, Subcommand};
-use websearch::SearchError;
 mod auth;
 mod google_cal;
 mod time;
@@ -30,11 +29,6 @@ enum Tool {
 struct Cli {
     #[command(subcommand)]
     tool: Tool,
-}
-
-enum CliError {
-    Web(SearchError),
-    Calendar(google_calendar3::Error),
 }
 
 #[tokio::main]
