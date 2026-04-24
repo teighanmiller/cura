@@ -74,12 +74,11 @@ async fn get_event(
     name: Option<String>,
     start_time: Option<String>,
     end_time: Option<String>,
-) -> StringOutput {
-    if name.is_none() {
-        panic!("Must provide an event name to fetch an event.")
-    }
+) -> Result<StringOutput, Error> {
     let event_query = EventQuery {
-        name: name.unwrap(),
+        name: name
+            .ok_or("Event name was 'None', please provide an event name.")
+            .unwrap(),
         start_time: start_time.map(|t| convert_datetime(&t).unwrap()),
         end_time: end_time.map(|t| convert_datetime(&t).unwrap()),
     };
@@ -92,7 +91,7 @@ async fn get_event(
             .doit()
             .await
             .unwrap();
-        event_to_string(events)
+        Ok(event_to_string(events))
     } else {
         let (_response, events) = hub
             .events()
@@ -103,7 +102,7 @@ async fn get_event(
             .doit()
             .await
             .unwrap();
-        event_to_string(events)
+        Ok(event_to_string(events))
     }
 }
 
@@ -111,7 +110,7 @@ async fn get_events(
     hub: auth::Hub,
     start_time: Option<String>,
     end_time: Option<String>,
-) -> StringOutput {
+) -> Result<StringOutput, Error> {
     let mut period = get_period(&vec![]);
     if !start_time.is_none() & !end_time.is_none() {
         period = get_period(&vec![start_time.unwrap(), end_time.unwrap()]);
@@ -124,7 +123,7 @@ async fn get_events(
         .doit()
         .await?;
 
-    event_to_string(events)
+    Ok(event_to_string(events))
 }
 
 async fn insert_event(hub: auth::Hub, event: Event, cal_id: &str) -> CalendarListEntryResponse {
@@ -171,7 +170,7 @@ async fn insert_new_event(
     date: Option<String>,
     start_time: Option<String>,
     end_time: Option<String>,
-) -> StringOutput {
+) -> Result<StringOutput, Error> {
     let cal_event = CalenderEvent {
         name: name.unwrap(),
         description: description.map(|d| d).unwrap(),
@@ -182,10 +181,8 @@ async fn insert_new_event(
     let event = create_event(cal_event);
     let result = insert_event(hub, event, "primary").await;
     match result {
-        Ok(_success) => Ok("Event added successfully!".to_string()),
-        Err(e) => {
-            Ok(format!("Failed to add event because of the following error: {}", e).to_string())
-        }
+        Ok(_success) => Ok(Ok("Event added successfully!".to_string())),
+        Err(e) => Err(e),
     }
 }
 
@@ -287,23 +284,16 @@ pub async fn get_calendar_service(
     date: Option<String>,
     start_time: Option<String>,
     end_time: Option<String>,
-) {
+) -> Result<String, Error> {
     let hub = auth::login().await;
 
     // All calls return a StringOutput Type
-    let results = match command {
-        GcalCommands::EventList => get_events(hub, start_time, end_time).await,
-        GcalCommands::EventDetails => get_event(hub, name, start_time, end_time).await,
+    match command {
+        GcalCommands::EventList => get_events(hub, start_time, end_time).await?,
+        GcalCommands::EventDetails => get_event(hub, name, start_time, end_time).await?,
         GcalCommands::NewEvent => {
-            insert_new_event(hub, name, description, date, start_time, end_time).await
+            insert_new_event(hub, name, description, date, start_time, end_time).await?
         }
         GcalCommands::Series => todo!(), // create a repeating event
-    };
-
-    match results {
-        Ok(events) => {
-            println!("{}", events);
-        }
-        Err(error) => println!("Whoops, encountered error {}", error),
-    };
+    }
 }
