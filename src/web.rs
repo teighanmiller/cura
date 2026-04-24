@@ -1,5 +1,5 @@
 use clap::ValueEnum;
-use websearch::{SearchError, SearchOptions, SearchProvider, providers, web_search};
+use websearch::{SearchOptions, SearchProvider, providers, web_search};
 
 #[derive(ValueEnum, Clone)]
 pub enum SearchEngine {
@@ -45,27 +45,12 @@ async fn search(
     results
 }
 
-pub async fn websearch(query: String, engine: Option<SearchEngine>, max_values: Option<u32>) {
+pub async fn websearch(
+    query: String,
+    engine: Option<SearchEngine>,
+    max_values: Option<u32>,
+) -> Result<String, anyhow::Error> {
     let search_query = create_search_options(query.to_string(), engine, max_values);
-    match search(search_query).await {
-        Ok(results) => {
-            println!("Found {} results: {:?}", results.len(), results);
-        }
-        Err(SearchError::AuthenticationError(msg)) => {
-            eprintln!("Auth failed: {}", msg);
-        }
-        Err(SearchError::RateLimit(msg)) => {
-            eprintln!("Rate limited: {}", msg);
-        }
-        Err(SearchError::HttpError {
-            message,
-            status_code,
-            ..
-        }) => {
-            eprintln!("HTTP error {}: {}", status_code.unwrap_or(0), message);
-        }
-        Err(e) => {
-            eprintln!("Search failed: {}", e);
-        }
-    }
+    let results = search(search_query).await?;
+    Ok(format!("Search Results: {:?}", results))
 }
