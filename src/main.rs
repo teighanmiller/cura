@@ -1,4 +1,6 @@
+use anyhow::Ok;
 use clap::{Parser, Subcommand};
+use websearch::SearchError;
 mod auth;
 mod google_cal;
 mod time;
@@ -16,6 +18,7 @@ enum Tool {
     },
     Web {
         query: String,
+        #[arg(short, long)]
         engine: Option<web::SearchEngine>,
         #[arg(long)]
         max_value: Option<u32>,
@@ -29,11 +32,16 @@ struct Cli {
     tool: Tool,
 }
 
+enum CliError {
+    Web(SearchError),
+    Calendar(google_calendar3::Error),
+}
+
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), anyhow::Error> {
     let args = Cli::parse();
 
-    match args.tool {
+    let results = match args.tool {
         Tool::Gcal {
             command,
             name,
@@ -43,12 +51,15 @@ async fn main() {
             end_time,
         } => {
             google_cal::get_calendar_service(command, name, description, date, start_time, end_time)
-                .await
+                .await?
         }
         Tool::Web {
             query,
             engine,
             max_value,
-        } => web::websearch(query, engine, max_value).await,
-    }
+        } => web::websearch(query, engine, max_value).await?,
+    };
+
+    println!("{}", results);
+    Ok(())
 }
