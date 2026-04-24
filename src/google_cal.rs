@@ -1,12 +1,21 @@
 use crate::auth;
 use crate::time::{convert_date, convert_datetime, convert_time, get_current_timezone, get_period};
-use chrono::{Local, NaiveDate, NaiveDateTime, NaiveTime};
+use chrono::{NaiveDate, NaiveDateTime};
+use clap::ValueEnum;
 use google_calendar3::Error;
 use google_calendar3::api::{Event, EventDateTime, Events};
 use http::Response;
 use http_body_util::combinators::BoxBody;
 
-static EVENT_LIST: &[&str] = &["event_list", "event_details", "new_event", "series"];
+// static EVENT_LIST: &[&str] = &["event_list", "event_details", "new_event", "series"];
+
+#[derive(ValueEnum, Clone)]
+pub enum GcalCommands {
+    EventList,
+    EventDetails,
+    NewEvent,
+    Series,
+}
 
 type CalendarListEntryResponse = Result<
     (
@@ -24,34 +33,25 @@ struct EventQuery {
     end_time: Option<NaiveDateTime>,
 }
 
-impl From<&Vec<String>> for EventQuery {
-    fn from(v: &Vec<String>) -> Self {
-        let mut iter = v.iter();
-        EventQuery {
-            name: iter.next().unwrap().to_string(),
-            start_time: iter.next().map(|t| convert_datetime(t).unwrap()),
-            end_time: iter.next().map(|t| convert_datetime(t).unwrap()),
-        }
-    }
-}
-
 struct CalenderEvent {
     name: String,
     description: String,
     date: NaiveDate,
-    start_time: Option<NaiveTime>,
-    end_time: Option<NaiveTime>,
+    start_time: Option<NaiveDateTime>,
+    end_time: Option<NaiveDateTime>,
 }
 
 impl From<&Vec<String>> for CalenderEvent {
-    fn from(v: &Vec<String>) -> Self {
-        let mut iter = v.iter();
+    fn from(args: &Vec<String>) -> Self {
+        let date = convert_date(&args[2]).unwrap();
+        let start_time = args.get(3).map(|t| date.and_time(convert_time(t).unwrap()));
+        let end_time = args.get(4).map(|t| date.and_time(convert_time(t).unwrap()));
         CalenderEvent {
-            name: iter.next().unwrap().to_string(),
-            description: iter.next().unwrap().to_string(),
-            date: convert_date(iter.next().unwrap()).unwrap(),
-            start_time: iter.next().map(|t| convert_time(t).unwrap()),
-            end_time: iter.next().map(|t| convert_time(t).unwrap()),
+            name: args[0].clone(),
+            description: args[1].clone(),
+            date,
+            start_time,
+            end_time,
         }
     }
 }
@@ -59,6 +59,9 @@ impl From<&Vec<String>> for CalenderEvent {
 fn event_to_string(events: Events) -> StringOutput {
     let mut output = String::new();
     let events = events.items.unwrap_or_default();
+    if events.is_empty() {
+        println!("No events found in calendar.")
+    }
     for event in events {
         let formatted = format!("Event: {}\n", event.summary.unwrap_or_default());
         output.push_str(&formatted);
@@ -66,13 +69,26 @@ fn event_to_string(events: Events) -> StringOutput {
     Ok(output)
 }
 
-async fn get_event(hub: auth::Hub, event_details: &Vec<String>) -> StringOutput {
-    let details = EventQuery::from(event_details);
-    if details.start_time.is_none() | details.end_time.is_none() {
+async fn get_event(
+    hub: auth::Hub,
+    name: Option<String>,
+    start_time: Option<String>,
+    end_time: Option<String>,
+) -> StringOutput {
+    if name.is_none() {
+        panic!("Must provide an event name to fetch an event.")
+    }
+    let event_query = EventQuery {
+        name: name.unwrap(),
+        start_time: start_time.map(|t| convert_datetime(&t).unwrap()),
+        end_time: end_time.map(|t| convert_datetime(&t).unwrap()),
+    };
+
+    if event_query.start_time.is_none() | event_query.end_time.is_none() {
         let (_response, events) = hub
             .events()
             .list("primary")
-            .q(details.name.as_str())
+            .q(event_query.name.as_str())
             .doit()
             .await
             .unwrap();
@@ -81,9 +97,9 @@ async fn get_event(hub: auth::Hub, event_details: &Vec<String>) -> StringOutput 
         let (_response, events) = hub
             .events()
             .list("primary")
-            .time_min(details.start_time.unwrap().and_utc())
-            .time_max(details.start_time.unwrap().and_utc())
-            .q(details.name.as_str())
+            .time_min(event_query.start_time.unwrap().and_utc())
+            .time_max(event_query.start_time.unwrap().and_utc())
+            .q(event_query.name.as_str())
             .doit()
             .await
             .unwrap();
@@ -91,8 +107,15 @@ async fn get_event(hub: auth::Hub, event_details: &Vec<String>) -> StringOutput 
     }
 }
 
-async fn get_events(hub: auth::Hub, arguments: &Vec<String>) -> StringOutput {
-    let period = get_period(arguments);
+async fn get_events(
+    hub: auth::Hub,
+    start_time: Option<String>,
+    end_time: Option<String>,
+) -> StringOutput {
+    let mut period = get_period(&vec![]);
+    if !start_time.is_none() & !end_time.is_none() {
+        period = get_period(&vec![start_time.unwrap(), end_time.unwrap()]);
+    }
     let (_response, events) = hub
         .events()
         .list("primary")
@@ -125,26 +148,37 @@ fn create_event(event_details: CalenderEvent) -> Event {
             time_zone: None,
         });
     } else {
-        let naive_st = event_details
-            .date
-            .and_time(event_details.start_time.unwrap());
-        let naive_et = event_details.date.and_time(event_details.end_time.unwrap());
+        let naive_st = event_details.start_time;
+        let naive_et = event_details.end_time;
         req.start = Some(EventDateTime {
             date: None,
-            date_time: Some(naive_st.and_local_timezone(Local).unwrap().to_utc()),
+            date_time: naive_st.map(|naive| naive.and_utc()),
             time_zone: Some(get_current_timezone()),
         });
         req.end = Some(EventDateTime {
             date: None,
-            date_time: Some(naive_et.and_local_timezone(Local).unwrap().to_utc()),
+            date_time: naive_et.map(|naive| naive.and_utc()),
             time_zone: Some(get_current_timezone()),
         });
     }
     req
 }
 
-async fn insert_new_event(hub: auth::Hub, event_details: &Vec<String>) -> StringOutput {
-    let cal_event = CalenderEvent::from(event_details);
+async fn insert_new_event(
+    hub: auth::Hub,
+    name: Option<String>,
+    description: Option<String>,
+    date: Option<String>,
+    start_time: Option<String>,
+    end_time: Option<String>,
+) -> StringOutput {
+    let cal_event = CalenderEvent {
+        name: name.unwrap(),
+        description: description.map(|d| d).unwrap(),
+        date: date.map(|d| convert_date(&d).unwrap()).unwrap(),
+        start_time: start_time.map(|t| convert_datetime(&t).unwrap()),
+        end_time: end_time.map(|t| convert_datetime(&t).unwrap()),
+    };
     let event = create_event(cal_event);
     let result = insert_event(hub, event, "primary").await;
     match result {
@@ -246,16 +280,24 @@ mod tests {
     }
 }
 
-pub async fn get_calendar_service(command: &String, arguments: &Vec<String>) {
+pub async fn get_calendar_service(
+    command: GcalCommands,
+    name: Option<String>,
+    description: Option<String>,
+    date: Option<String>,
+    start_time: Option<String>,
+    end_time: Option<String>,
+) {
     let hub = auth::login().await;
 
     // All calls return a StringOutput Type
-    let results = match command.as_str() {
-        "event_list" => get_events(hub, arguments).await,
-        "event_details" => get_event(hub, arguments).await,
-        "new_event" => insert_new_event(hub, arguments).await,
-        "series" => todo!(), // create a repeating event
-        _ => panic!("unknown command! Please use one of: {:?}", EVENT_LIST),
+    let results = match command {
+        GcalCommands::EventList => get_events(hub, start_time, end_time).await,
+        GcalCommands::EventDetails => get_event(hub, name, start_time, end_time).await,
+        GcalCommands::NewEvent => {
+            insert_new_event(hub, name, description, date, start_time, end_time).await
+        }
+        GcalCommands::Series => todo!(), // create a repeating event
     };
 
     match results {
