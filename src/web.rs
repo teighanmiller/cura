@@ -10,7 +10,7 @@ fn get_provider(provider: Option<SearchEngine>) -> Box<dyn SearchProvider> {
     match provider {
         Some(SearchEngine::DuckDuckGo) => Box::new(providers::DuckDuckGoProvider::new()),
         None => {
-            println!("No provider supplied, defaulting to DuckDuckGo.");
+            eprintln!("No provider supplied, defaulting to DuckDuckGo.");
             Box::new(providers::DuckDuckGoProvider::new())
         }
     }

@@ -90,7 +90,7 @@ fn default_time() -> Period {
 
 pub fn get_period(args: &Vec<String>) -> Period {
     if args.is_empty() || (args.len() == 1 && args[0] == "today") {
-        println!("Searching {} for events.", Utc::now());
+        eprintln!("Searching {} for events.", Utc::now());
         default_time()
     } else {
         get_utc_period(args[0].clone(), args[1].clone())
