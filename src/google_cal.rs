@@ -14,7 +14,14 @@ pub enum GcalCommands {
     EventList,
     EventDetails,
     NewEvent,
-    Series,
+}
+
+#[derive(ValueEnum, Clone)]
+pub enum SeriesArgs {
+    Weekly,
+    Monthly,
+    Daily,
+    Yearly,
 }
 
 type CalendarListEntryResponse = Result<
@@ -39,6 +46,7 @@ struct CalenderEvent {
     date: NaiveDate,
     start_time: Option<NaiveDateTime>,
     end_time: Option<NaiveDateTime>,
+    freq: Option<SeriesArgs>,
 }
 
 impl From<&Vec<String>> for CalenderEvent {
@@ -46,12 +54,14 @@ impl From<&Vec<String>> for CalenderEvent {
         let date = convert_date(&args[2]).unwrap();
         let start_time = args.get(3).map(|t| date.and_time(convert_time(t).unwrap()));
         let end_time = args.get(4).map(|t| date.and_time(convert_time(t).unwrap()));
+        let freq = None;
         CalenderEvent {
             name: args[0].clone(),
             description: args[1].clone(),
             date,
             start_time,
             end_time,
+            freq,
         }
     }
 }
@@ -130,10 +140,23 @@ async fn insert_event(hub: auth::Hub, event: Event, cal_id: &str) -> CalendarLis
     hub.events().insert(event, cal_id).doit().await
 }
 
+fn get_freq_rule(freq: SeriesArgs) -> String {
+    match freq {
+        SeriesArgs::Daily => "RRULE:FREQ=DAILY".to_string(),
+        SeriesArgs::Weekly => "RRULE:FREQ=WEEKLY".to_string(),
+        SeriesArgs::Monthly => "RRULE:FREQ=MONTHLY".to_string(),
+        SeriesArgs::Yearly => "RRULE:FREQ=YEARLY".to_string(),
+    }
+}
+
 fn create_event(event_details: CalenderEvent) -> Event {
     let mut req = Event::default();
     req.summary = Some(event_details.name);
     req.description = Some(event_details.description);
+
+    if !event_details.freq.is_none() {
+        req.recurrence = Some(vec![get_freq_rule(event_details.freq.unwrap())])
+    }
 
     if event_details.start_time.is_none() | event_details.end_time.is_none() {
         req.start = Some(EventDateTime {
@@ -170,6 +193,7 @@ async fn insert_new_event(
     date: Option<String>,
     start_time: Option<String>,
     end_time: Option<String>,
+    freq: Option<SeriesArgs>,
 ) -> Result<StringOutput, Error> {
     let cal_event = CalenderEvent {
         name: name.unwrap(),
@@ -177,6 +201,7 @@ async fn insert_new_event(
         date: date.map(|d| convert_date(&d).unwrap()).unwrap(),
         start_time: start_time.map(|t| convert_datetime(&t).unwrap()),
         end_time: end_time.map(|t| convert_datetime(&t).unwrap()),
+        freq: freq,
     };
     let event = create_event(cal_event);
     let result = insert_event(hub, event, "primary").await;
@@ -284,6 +309,7 @@ pub async fn get_calendar_service(
     date: Option<String>,
     start_time: Option<String>,
     end_time: Option<String>,
+    freq: Option<SeriesArgs>,
 ) -> Result<String, Error> {
     let hub = auth::login().await;
 
@@ -292,8 +318,7 @@ pub async fn get_calendar_service(
         GcalCommands::EventList => get_events(hub, start_time, end_time).await?,
         GcalCommands::EventDetails => get_event(hub, name, start_time, end_time).await?,
         GcalCommands::NewEvent => {
-            insert_new_event(hub, name, description, date, start_time, end_time).await?
+            insert_new_event(hub, name, description, date, start_time, end_time, freq).await?
         }
-        GcalCommands::Series => todo!(), // create a repeating event
     }
 }
