@@ -1,5 +1,7 @@
 use anyhow::Ok;
 use clap::{Parser, Subcommand};
+
+use crate::google_cal::SeriesArgs;
 mod auth;
 mod google_cal;
 mod time;
@@ -14,6 +16,7 @@ enum Tool {
         date: Option<String>,
         start_time: Option<String>,
         end_time: Option<String>,
+        freq: Option<SeriesArgs>,
     },
     Web {
         query: String,
@@ -43,9 +46,18 @@ async fn main() -> Result<(), anyhow::Error> {
             date,
             start_time,
             end_time,
+            freq,
         } => {
-            google_cal::get_calendar_service(command, name, description, date, start_time, end_time)
-                .await?
+            google_cal::get_calendar_service(
+                command,
+                name,
+                description,
+                date,
+                start_time,
+                end_time,
+                freq,
+            )
+            .await?
         }
         Tool::Web {
             query,
