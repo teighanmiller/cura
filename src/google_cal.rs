@@ -1,17 +1,31 @@
 use crate::auth;
 use crate::time::{convert_date, convert_datetime, get_current_timezone, get_period};
 use chrono::{NaiveDate, NaiveDateTime};
-use clap::ValueEnum;
+use clap::{Args, Subcommand, ValueEnum};
 use google_calendar3::Error;
 use google_calendar3::api::{Event, EventDateTime, Events};
 use http::Response;
 use http_body_util::combinators::BoxBody;
 
-#[derive(ValueEnum, Clone)]
+#[derive(Subcommand, Clone)]
 pub enum GcalCommands {
-    EventList,
-    EventDetails,
-    NewEvent,
+    EventList {
+        start_time: Option<String>,
+        end_time: Option<String>,
+    },
+    EventDetails {
+        name: String,
+        start_time: Option<String>,
+        end_time: Option<String>,
+    },
+    NewEvent {
+        name: String,
+        description: Option<String>,
+        date: Option<String>,
+        start_time: Option<String>,
+        end_time: Option<String>,
+        freq: Option<SeriesArgs>,
+    },
 }
 
 #[derive(ValueEnum, Clone)]
@@ -20,6 +34,12 @@ pub enum SeriesArgs {
     Monthly,
     Daily,
     Yearly,
+}
+
+#[derive(Args, Clone)]
+pub struct GcalArgs {
+    #[command(subcommand)]
+    command: GcalCommands,
 }
 
 type CalendarListEntryResponse = Result<
@@ -62,14 +82,12 @@ fn event_to_string(events: Events) -> StringOutput {
 
 async fn get_event(
     hub: auth::Hub,
-    name: Option<String>,
+    name: String,
     start_time: Option<String>,
     end_time: Option<String>,
 ) -> Result<StringOutput, Error> {
     let event_query = EventQuery {
-        name: name
-            .ok_or("Event name was 'None', please provide an event name.")
-            .unwrap(),
+        name: name,
         start_time: start_time.map(|t| convert_datetime(&t).unwrap()),
         end_time: end_time.map(|t| convert_datetime(&t).unwrap()),
     };
@@ -167,7 +185,7 @@ fn create_event(event_details: CalendarEvent) -> Event {
 
 async fn insert_new_event(
     hub: auth::Hub,
-    name: Option<String>,
+    name: String,
     description: Option<String>,
     date: Option<String>,
     start_time: Option<String>,
@@ -175,7 +193,7 @@ async fn insert_new_event(
     freq: Option<SeriesArgs>,
 ) -> Result<StringOutput, Error> {
     let cal_event = CalendarEvent {
-        name: name.unwrap(),
+        name: name,
         description: description.unwrap(),
         date: date.map(|d| convert_date(&d).unwrap()).unwrap(),
         start_time: start_time.map(|t| convert_datetime(&t).unwrap()),
@@ -248,23 +266,27 @@ mod tests {
     }
 }
 
-pub async fn get_calendar_service(
-    command: GcalCommands,
-    name: Option<String>,
-    description: Option<String>,
-    date: Option<String>,
-    start_time: Option<String>,
-    end_time: Option<String>,
-    freq: Option<SeriesArgs>,
-) -> Result<String, Box<Error>> {
+pub async fn get_calendar_service(args: GcalArgs) -> Result<String, Box<Error>> {
     let hub = auth::login().await;
 
     // All calls return a StringOutput Type
-    match command {
-        GcalCommands::EventList => get_events(hub, start_time, end_time).await?,
-        GcalCommands::EventDetails => get_event(hub, name, start_time, end_time).await?,
-        GcalCommands::NewEvent => {
-            insert_new_event(hub, name, description, date, start_time, end_time, freq).await?
-        }
+    match args.command {
+        GcalCommands::EventList {
+            start_time,
+            end_time,
+        } => get_events(hub, start_time, end_time).await?,
+        GcalCommands::EventDetails {
+            name,
+            start_time,
+            end_time,
+        } => get_event(hub, name, start_time, end_time).await?,
+        GcalCommands::NewEvent {
+            name,
+            description,
+            date,
+            start_time,
+            end_time,
+            freq,
+        } => insert_new_event(hub, name, description, date, start_time, end_time, freq).await?,
     }
 }

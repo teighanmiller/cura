@@ -1,9 +1,19 @@
+use clap::Parser;
 use clap::ValueEnum;
 use websearch::{SearchOptions, SearchProvider, providers, web_search};
 
 #[derive(ValueEnum, Clone)]
 pub enum SearchEngine {
     DuckDuckGo,
+}
+
+#[derive(Parser, Clone)]
+pub struct WebArgs {
+    query: String,
+    #[arg(short, long)]
+    engine: Option<SearchEngine>,
+    #[arg(long)]
+    max_value: Option<u32>,
 }
 
 fn get_provider(provider: Option<SearchEngine>) -> Box<dyn SearchProvider> {
@@ -70,12 +80,8 @@ mod tests {
     }
 }
 
-pub async fn websearch(
-    query: String,
-    engine: Option<SearchEngine>,
-    max_values: Option<u32>,
-) -> Result<String, anyhow::Error> {
-    let search_query = create_search_options(query.to_string(), engine, max_values);
+pub async fn websearch(args: WebArgs) -> Result<String, anyhow::Error> {
+    let search_query = create_search_options(args.query.to_string(), args.engine, args.max_value);
     let results = search(search_query).await?;
     Ok(format!("Search Results: {:?}", results))
 }
