@@ -83,5 +83,16 @@ mod tests {
 pub async fn websearch(args: WebArgs) -> Result<String, anyhow::Error> {
     let search_query = create_search_options(args.query.to_string(), args.engine, args.max_value);
     let results = search(search_query).await?;
-    Ok(format!("Search Results: {:?}", results))
+
+    let formatted = results
+        .iter()
+        .enumerate()
+        .map(|(i, r)| {
+            let snippet = r.snippet.as_deref().unwrap_or("No description available.");
+            format!("{}. {}\n   {}\n   {}", i + 1, r.title, r.url, snippet)
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    Ok(formatted)
 }
