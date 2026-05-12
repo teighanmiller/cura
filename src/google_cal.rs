@@ -85,11 +85,11 @@ async fn get_event(
     name: String,
     start_time: Option<String>,
     end_time: Option<String>,
-) -> Result<StringOutput, Error> {
+) -> Result<StringOutput, anyhow::Error> {
     let event_query = EventQuery {
         name: name,
-        start_time: start_time.map(|t| convert_datetime(&t).unwrap()),
-        end_time: end_time.map(|t| convert_datetime(&t).unwrap()),
+        start_time: start_time.map(|t| convert_datetime(&t)).transpose()?,
+        end_time: end_time.map(|t| convert_datetime(&t)).transpose()?,
     };
 
     if let (Some(start), Some(end)) = (event_query.start_time, event_query.end_time) {
@@ -117,7 +117,7 @@ async fn get_events(
     hub: auth::Hub,
     start_time: Option<String>,
     end_time: Option<String>,
-) -> Result<StringOutput, Error> {
+) -> Result<StringOutput, anyhow::Error> {
     let mut period = get_period(&[]);
     if let (Some(start), Some(end)) = (start_time, end_time) {
         period = get_period(&[start, end]);
@@ -191,7 +191,7 @@ async fn insert_new_event(
     start_time: Option<String>,
     end_time: Option<String>,
     freq: Option<SeriesArgs>,
-) -> Result<StringOutput, Error> {
+) -> Result<StringOutput, anyhow::Error> {
     let cal_event = CalendarEvent {
         name: name,
         description: description.unwrap(),
@@ -204,7 +204,7 @@ async fn insert_new_event(
     let result = insert_event(hub, event, "primary").await;
     match result {
         Ok(_success) => Ok(Ok("Event added successfully!".to_string())),
-        Err(e) => Err(e),
+        Err(e) => Err(e.into()),
     }
 }
 
@@ -266,7 +266,7 @@ mod tests {
     }
 }
 
-pub async fn get_calendar_service(args: GcalArgs) -> Result<String, Box<Error>> {
+pub async fn get_calendar_service(args: GcalArgs) -> Result<String, anyhow::Error> {
     let hub = auth::login().await;
 
     // All calls return a StringOutput Type
@@ -274,12 +274,16 @@ pub async fn get_calendar_service(args: GcalArgs) -> Result<String, Box<Error>> 
         GcalCommands::EventList {
             start_time,
             end_time,
-        } => get_events(hub, start_time, end_time).await?,
+        } => get_events(hub, start_time, end_time)
+            .await?
+            .map_err(|e| anyhow::anyhow!("{e}")),
         GcalCommands::EventDetails {
             name,
             start_time,
             end_time,
-        } => get_event(hub, name, start_time, end_time).await?,
+        } => get_event(hub, name, start_time, end_time)
+            .await?
+            .map_err(|e| anyhow::anyhow!("{e}")),
         GcalCommands::NewEvent {
             name,
             description,
@@ -287,6 +291,8 @@ pub async fn get_calendar_service(args: GcalArgs) -> Result<String, Box<Error>> 
             start_time,
             end_time,
             freq,
-        } => insert_new_event(hub, name, description, date, start_time, end_time, freq).await?,
+        } => insert_new_event(hub, name, description, date, start_time, end_time, freq)
+            .await?
+            .map_err(|e| anyhow::anyhow!("{e}")),
     }
 }
