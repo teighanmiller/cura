@@ -41,8 +41,7 @@ fn create_search_options(
 async fn search(
     search_query: SearchOptions,
 ) -> Result<Vec<websearch::SearchResult>, websearch::SearchError> {
-    let results = web_search(search_query).await;
-    results
+    web_search(search_query).await
 }
 
 pub async fn websearch(

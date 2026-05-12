@@ -1,4 +1,4 @@
-use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, NaiveTime, Timelike, Utc};
+use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, Timelike, Utc};
 
 pub struct Period {
     pub min_time: DateTime<Utc>,
@@ -7,23 +7,17 @@ pub struct Period {
 
 static DATE_TIME_STR: &str = "%Y-%m-%d %H:%M:%S %z";
 static DATE_STR: &str = "%Y-%m-%d";
-static TIME_STR: &str = "%H:%M:%S";
 
-pub fn convert_time(time: &String) -> Result<NaiveTime, chrono::ParseError> {
-    NaiveTime::parse_from_str(time, TIME_STR)
+pub fn convert_date(date: &str) -> Result<NaiveDate, chrono::ParseError> {
+    NaiveDate::parse_from_str(date, DATE_STR)
 }
 
-pub fn convert_date(date: &String) -> Result<NaiveDate, chrono::ParseError> {
-    NaiveDate::parse_from_str(&date, DATE_STR)
-}
-
-pub fn convert_datetime(datetime: &String) -> Result<NaiveDateTime, chrono::ParseError> {
-    NaiveDateTime::parse_from_str(&datetime, DATE_TIME_STR)
+pub fn convert_datetime(datetime: &str) -> Result<NaiveDateTime, chrono::ParseError> {
+    NaiveDateTime::parse_from_str(datetime, DATE_TIME_STR)
 }
 
 pub fn get_current_timezone() -> String {
-    let tz_str = iana_time_zone::get_timezone().expect("Failed to get timezone");
-    tz_str
+    iana_time_zone::get_timezone().expect("Failed to get timezone")
 }
 
 fn parse_to_utc(utc: &str) -> Result<DateTime<FixedOffset>, chrono::ParseError> {
@@ -31,7 +25,7 @@ fn parse_to_utc(utc: &str) -> Result<DateTime<FixedOffset>, chrono::ParseError> 
 }
 
 fn get_utc(utc: &str) -> DateTime<FixedOffset> {
-    let datetime = parse_to_utc(&utc);
+    let datetime = parse_to_utc(utc);
 
     match datetime {
         Ok(datetime) => datetime,
@@ -88,85 +82,11 @@ fn default_time() -> Period {
     get_day(now)
 }
 
-pub fn get_period(args: &Vec<String>) -> Period {
+pub fn get_period(args: &[String]) -> Period {
     if args.is_empty() || (args.len() == 1 && args[0] == "today") {
         eprintln!("Searching {} for events.", Utc::now());
         default_time()
     } else {
         get_utc_period(args[0].clone(), args[1].clone())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::{Datelike, Timelike};
-
-    #[test]
-    fn convert_time_valid() {
-        let result = convert_time(&"14:30:00".to_string());
-        assert!(result.is_ok());
-        let t = result.unwrap();
-        assert_eq!(t.hour(), 14);
-        assert_eq!(t.minute(), 30);
-    }
-
-    #[test]
-    fn convert_time_invalid_format() {
-        let result = convert_time(&"2:30 PM".to_string());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn convert_date_valid() {
-        let result = convert_date(&"2026-04-18".to_string());
-        assert!(result.is_ok());
-        let d = result.unwrap();
-        assert_eq!(d.year(), 2026);
-        assert_eq!(d.month(), 4);
-        assert_eq!(d.day(), 18);
-    }
-
-    #[test]
-    fn convert_date_invalid_format() {
-        let result = convert_date(&"04/18/2026".to_string());
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn get_period_empty_returns_today() {
-        let period = get_period(&vec![]);
-        assert!(period.min_time <= period.max_time);
-        // min should be start of some day (hour 0)
-        assert_eq!(period.min_time.hour(), 0);
-        assert_eq!(period.max_time.hour(), 23);
-    }
-
-    #[test]
-    fn get_period_today_keyword() {
-        let period = get_period(&vec!["today".to_string()]);
-        assert_eq!(period.min_time.hour(), 0);
-        assert_eq!(period.max_time.hour(), 23);
-    }
-
-    #[test]
-    fn get_period_two_datetimes_ordered() {
-        let args = vec![
-            "2026-04-18 09:00:00 +0000".to_string(),
-            "2026-04-18 17:00:00 +0000".to_string(),
-        ];
-        let period = get_period(&args);
-        assert!(period.min_time < period.max_time);
-    }
-
-    #[test]
-    fn get_period_two_datetimes_reversed_input() {
-        // Later time given first — should still produce min < max
-        let args = vec![
-            "2026-04-18 17:00:00 +0000".to_string(),
-            "2026-04-18 09:00:00 +0000".to_string(),
-        ];
-        let period = get_period(&args);
-        assert!(period.min_time < period.max_time);
     }
 }

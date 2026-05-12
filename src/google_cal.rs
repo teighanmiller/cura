@@ -30,7 +30,7 @@ type CalendarListEntryResponse = Result<
     google_calendar3::Error,
 >;
 
-type StringOutput = Result<String, Error>;
+type StringOutput = Result<String, Box<Error>>;
 
 struct EventQuery {
     name: String,
@@ -38,7 +38,7 @@ struct EventQuery {
     end_time: Option<NaiveDateTime>,
 }
 
-struct CalenderEvent {
+struct CalendarEvent {
     name: String,
     description: String,
     date: NaiveDate,
@@ -74,10 +74,12 @@ async fn get_event(
         end_time: end_time.map(|t| convert_datetime(&t).unwrap()),
     };
 
-    if event_query.start_time.is_none() | event_query.end_time.is_none() {
+    if let (Some(start), Some(end)) = (event_query.start_time, event_query.end_time) {
         let (_response, events) = hub
             .events()
             .list("primary")
+            .time_min(start.and_utc())
+            .time_max(end.and_utc())
             .q(event_query.name.as_str())
             .doit()
             .await?;
@@ -86,8 +88,6 @@ async fn get_event(
         let (_response, events) = hub
             .events()
             .list("primary")
-            .time_min(event_query.start_time.unwrap().and_utc())
-            .time_max(event_query.end_time.unwrap().and_utc())
             .q(event_query.name.as_str())
             .doit()
             .await?;
@@ -100,9 +100,9 @@ async fn get_events(
     start_time: Option<String>,
     end_time: Option<String>,
 ) -> Result<StringOutput, Error> {
-    let mut period = get_period(&vec![]);
-    if start_time.is_some() & end_time.is_some() {
-        period = get_period(&vec![start_time.unwrap(), end_time.unwrap()]);
+    let mut period = get_period(&[]);
+    if let (Some(start), Some(end)) = (start_time, end_time) {
+        period = get_period(&[start, end]);
     }
     let (_response, events) = hub
         .events()
@@ -128,41 +128,41 @@ fn get_freq_rule(freq: SeriesArgs) -> String {
     }
 }
 
-fn create_event(event_details: CalenderEvent) -> Event {
-    let mut req = Event::default();
-    req.summary = Some(event_details.name);
-    req.description = Some(event_details.description);
+fn create_event(event_details: CalendarEvent) -> Event {
+    let mut event = Event {
+        summary: Some(event_details.name),
+        description: Some(event_details.description),
+        recurrence: match event_details.freq {
+            Some(rec) => Some(vec![get_freq_rule(rec)]),
+            _ => None,
+        },
+        ..Default::default()
+    };
 
-    if !event_details.freq.is_none() {
-        req.recurrence = Some(vec![get_freq_rule(event_details.freq.unwrap())])
-    }
-
-    if event_details.start_time.is_none() | event_details.end_time.is_none() {
-        req.start = Some(EventDateTime {
-            date: Some(event_details.date),
-            date_time: None,
-            time_zone: None,
+    if let (Some(start), Some(end)) = (event_details.start_time, event_details.end_time) {
+        event.start = Some(EventDateTime {
+            date: None,
+            date_time: Some(start.and_utc()),
+            time_zone: Some(get_current_timezone()),
         });
-        req.end = Some(EventDateTime {
-            date: Some(event_details.date),
-            date_time: None,
-            time_zone: None,
+        event.end = Some(EventDateTime {
+            date: None,
+            date_time: Some(end.and_utc()),
+            time_zone: Some(get_current_timezone()),
         });
     } else {
-        let naive_st = event_details.start_time;
-        let naive_et = event_details.end_time;
-        req.start = Some(EventDateTime {
-            date: None,
-            date_time: naive_st.map(|naive| naive.and_utc()),
-            time_zone: Some(get_current_timezone()),
+        event.start = Some(EventDateTime {
+            date: Some(event_details.date),
+            date_time: None,
+            time_zone: None,
         });
-        req.end = Some(EventDateTime {
-            date: None,
-            date_time: naive_et.map(|naive| naive.and_utc()),
-            time_zone: Some(get_current_timezone()),
+        event.end = Some(EventDateTime {
+            date: Some(event_details.date),
+            date_time: None,
+            time_zone: None,
         });
     }
-    req
+    event
 }
 
 async fn insert_new_event(
@@ -174,13 +174,13 @@ async fn insert_new_event(
     end_time: Option<String>,
     freq: Option<SeriesArgs>,
 ) -> Result<StringOutput, Error> {
-    let cal_event = CalenderEvent {
+    let cal_event = CalendarEvent {
         name: name.unwrap(),
-        description: description.map(|d| d).unwrap(),
+        description: description.unwrap(),
         date: date.map(|d| convert_date(&d).unwrap()).unwrap(),
         start_time: start_time.map(|t| convert_datetime(&t).unwrap()),
         end_time: end_time.map(|t| convert_datetime(&t).unwrap()),
-        freq: freq,
+        freq,
     };
     let event = create_event(cal_event);
     let result = insert_event(hub, event, "primary").await;
@@ -198,7 +198,7 @@ pub async fn get_calendar_service(
     start_time: Option<String>,
     end_time: Option<String>,
     freq: Option<SeriesArgs>,
-) -> Result<String, Error> {
+) -> Result<String, Box<Error>> {
     let hub = auth::login().await;
 
     // All calls return a StringOutput Type
