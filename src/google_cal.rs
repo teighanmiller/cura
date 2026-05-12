@@ -190,6 +190,64 @@ async fn insert_new_event(
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::NaiveDate;
+
+    #[test]
+    fn freq_rule_daily() {
+        assert_eq!(get_freq_rule(SeriesArgs::Daily), "RRULE:FREQ=DAILY");
+    }
+
+    #[test]
+    fn freq_rule_weekly() {
+        assert_eq!(get_freq_rule(SeriesArgs::Weekly), "RRULE:FREQ=WEEKLY");
+    }
+
+    #[test]
+    fn freq_rule_monthly() {
+        assert_eq!(get_freq_rule(SeriesArgs::Monthly), "RRULE:FREQ=MONTHLY");
+    }
+
+    #[test]
+    fn freq_rule_yearly() {
+        assert_eq!(get_freq_rule(SeriesArgs::Yearly), "RRULE:FREQ=YEARLY");
+    }
+
+    #[test]
+    fn create_event_date_only() {
+        let cal = CalendarEvent {
+            name: "Meeting".to_string(),
+            description: "Team sync".to_string(),
+            date: NaiveDate::from_ymd_opt(2024, 1, 15).unwrap(),
+            start_time: None,
+            end_time: None,
+            freq: None,
+        };
+        let event = create_event(cal);
+        assert_eq!(event.summary.unwrap(), "Meeting");
+        assert_eq!(event.description.unwrap(), "Team sync");
+        assert!(event.recurrence.is_none());
+        assert!(event.start.as_ref().unwrap().date_time.is_none());
+    }
+
+    #[test]
+    fn create_event_with_recurrence() {
+        let cal = CalendarEvent {
+            name: "Standup".to_string(),
+            description: "Daily".to_string(),
+            date: NaiveDate::from_ymd_opt(2024, 1, 15).unwrap(),
+            start_time: None,
+            end_time: None,
+            freq: Some(SeriesArgs::Daily),
+        };
+        let event = create_event(cal);
+        let rec = event.recurrence.unwrap();
+        assert_eq!(rec, vec!["RRULE:FREQ=DAILY"]);
+    }
+}
+
 pub async fn get_calendar_service(
     command: GcalCommands,
     name: Option<String>,

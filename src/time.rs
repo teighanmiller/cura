@@ -90,3 +90,94 @@ pub fn get_period(args: &[String]) -> Period {
         get_utc_period(args[0].clone(), args[1].clone())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::{TimeZone, Timelike, Utc};
+
+    #[test]
+    fn convert_date_valid() {
+        assert!(convert_date("2024-01-15").is_ok());
+    }
+
+    #[test]
+    fn convert_date_invalid_format() {
+        assert!(convert_date("01/15/2024").is_err());
+    }
+
+    #[test]
+    fn convert_date_empty() {
+        assert!(convert_date("").is_err());
+    }
+
+    #[test]
+    fn convert_datetime_valid() {
+        assert!(convert_datetime("2024-01-15 09:30:00 +0000").is_ok());
+    }
+
+    #[test]
+    fn convert_datetime_invalid_format() {
+        assert!(convert_datetime("2024-01-15").is_err());
+    }
+
+    #[test]
+    fn convert_datetime_empty() {
+        assert!(convert_datetime("").is_err());
+    }
+
+    #[test]
+    fn parse_to_utc_valid() {
+        assert!(parse_to_utc("2024-01-15 09:30:00 +0000").is_ok());
+    }
+
+    #[test]
+    fn parse_to_utc_with_offset() {
+        assert!(parse_to_utc("2024-01-15 09:30:00 -0500").is_ok());
+    }
+
+    #[test]
+    fn parse_to_utc_invalid() {
+        assert!(parse_to_utc("not-a-date").is_err());
+    }
+
+    #[test]
+    fn get_utc_valid() {
+        let _ = get_utc("2024-01-15 09:30:00 +0000");
+    }
+
+    #[test]
+    #[should_panic]
+    fn get_utc_panics_on_invalid() {
+        get_utc("bad-input");
+    }
+
+    #[test]
+    fn get_utc_period_ordered() {
+        let p = get_utc_period(
+            "2024-01-15 08:00:00 +0000".to_string(),
+            "2024-01-15 10:00:00 +0000".to_string(),
+        );
+        assert!(p.min_time <= p.max_time);
+    }
+
+    #[test]
+    fn get_utc_period_reversed_input() {
+        let p = get_utc_period(
+            "2024-01-15 10:00:00 +0000".to_string(),
+            "2024-01-15 08:00:00 +0000".to_string(),
+        );
+        assert!(p.min_time <= p.max_time);
+    }
+
+    #[test]
+    fn get_day_bounds() {
+        let now = Utc.with_ymd_and_hms(2024, 1, 15, 12, 30, 0).unwrap();
+        let p = get_day(now);
+        assert_eq!(p.min_time.hour(), 0);
+        assert_eq!(p.min_time.minute(), 0);
+        assert_eq!(p.max_time.hour(), 23);
+        assert_eq!(p.max_time.minute(), 59);
+        assert_eq!(p.max_time.second(), 59);
+    }
+}
