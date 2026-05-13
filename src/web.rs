@@ -4,14 +4,19 @@ use websearch::{SearchOptions, SearchProvider, providers, web_search};
 
 #[derive(ValueEnum, Clone)]
 pub enum SearchEngine {
+    /// Search using DuckDuckGo
     DuckDuckGo,
 }
 
+/// Search the web and return formatted results
 #[derive(Parser, Clone)]
 pub struct WebArgs {
+    /// Search query
     query: String,
+    /// Search engine to use (defaults to DuckDuckGo)
     #[arg(short, long)]
     engine: Option<SearchEngine>,
+    /// Maximum number of results to return
     #[arg(long)]
     max_value: Option<u32>,
 }

@@ -9,33 +9,52 @@ use http_body_util::combinators::BoxBody;
 
 #[derive(Subcommand, Clone)]
 pub enum GcalCommands {
+    /// List upcoming calendar events
     EventList {
+        /// Start of the time range (e.g. "2024-01-15 09:00")
         start_time: Option<String>,
+        /// End of the time range (e.g. "2024-01-15 17:00")
         end_time: Option<String>,
     },
+    /// Get details for a specific event by name
     EventDetails {
+        /// Name or keyword to search for
         name: String,
+        /// Start of the search window (e.g. "2024-01-15 09:00")
         start_time: Option<String>,
+        /// End of the search window (e.g. "2024-01-15 17:00")
         end_time: Option<String>,
     },
+    /// Create a new calendar event
     NewEvent {
+        /// Event title
         name: String,
+        /// Event description
         description: Option<String>,
+        /// Event date (e.g. "2024-01-15")
         date: Option<String>,
+        /// Start time (e.g. "2024-01-15 09:00")
         start_time: Option<String>,
+        /// End time (e.g. "2024-01-15 10:00")
         end_time: Option<String>,
+        /// Recurrence frequency
         freq: Option<SeriesArgs>,
     },
 }
 
 #[derive(ValueEnum, Clone)]
 pub enum SeriesArgs {
+    /// Repeat every week
     Weekly,
+    /// Repeat every month
     Monthly,
+    /// Repeat every day
     Daily,
+    /// Repeat every year
     Yearly,
 }
 
+/// Google Calendar commands
 #[derive(Args, Clone)]
 pub struct GcalArgs {
     #[command(subcommand)]
