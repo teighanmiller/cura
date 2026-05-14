@@ -12,32 +12,43 @@ pub enum GcalCommands {
     /// List upcoming calendar events
     EventList {
         /// Start of the time range (e.g. "2024-01-15 09:00")
+        #[arg(short, long)]
         start_time: Option<String>,
         /// End of the time range (e.g. "2024-01-15 17:00")
+        #[arg(short, long)]
         end_time: Option<String>,
     },
     /// Get details for a specific event by name
     EventDetails {
         /// Name or keyword to search for
+        #[arg(short, long)]
         name: String,
         /// Start of the search window (e.g. "2024-01-15 09:00")
+        #[arg(short, long)]
         start_time: Option<String>,
         /// End of the search window (e.g. "2024-01-15 17:00")
+        #[arg(short, long)]
         end_time: Option<String>,
     },
     /// Create a new calendar event
     NewEvent {
         /// Event title
+        #[arg(short, long)]
         name: String,
         /// Event description
+        #[arg(short, long)]
         description: Option<String>,
         /// Event date (e.g. "2024-01-15")
+        #[arg(short, long)]
         date: Option<String>,
         /// Start time (e.g. "2024-01-15 09:00")
+        #[arg(short, long)]
         start_time: Option<String>,
         /// End time (e.g. "2024-01-15 10:00")
+        #[arg(short, long)]
         end_time: Option<String>,
         /// Recurrence frequency
+        #[arg(short, long)]
         freq: Option<SeriesArgs>,
     },
 }
