@@ -17,7 +17,7 @@ pub struct WebArgs {
     #[arg(short, long)]
     engine: Option<SearchEngine>,
     /// Maximum number of results to return
-    #[arg(long)]
+    #[arg(short, long)]
     max_value: Option<u32>,
 }
 
