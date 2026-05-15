@@ -1,0 +1,164 @@
+name: Integration Tests
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  integration-test:
+    runs-on: ubuntu-latest
+    env:
+      GOOGLE_SERVICE_ACCOUNT_KEY: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_KEY }}
+      BIN: ./target/release/cura
+
+    steps:
+      - uses: actions/checkout@v4.2.2
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release
+
+      # ── All-day event (today) ──────────────────────────────────────────────
+      - name: "Test: all-day event (today)"
+        run: |
+          set -euo pipefail
+          NAME="ci-${{ github.run_id }}-allday"
+          TODAY=$(date -u +%Y-%m-%d)
+
+          cleanup() { $BIN gcal delete-event --name "$NAME" 2>/dev/null || true; }
+          trap cleanup EXIT
+
+          $BIN gcal new-event --name "$NAME" --description "CI all-day test" --date "$TODAY"
+
+          if ! $BIN gcal event-list | grep -q "$NAME"; then
+            echo "FAIL: event not found in today's listing after creation"
+            exit 1
+          fi
+
+          if ! $BIN gcal event-details --name "$NAME" | grep -q "$NAME"; then
+            echo "FAIL: event-details did not return the event"
+            exit 1
+          fi
+
+          $BIN gcal delete-event --name "$NAME"
+
+          if $BIN gcal event-list | grep -q "$NAME"; then
+            echo "FAIL: event still present in today's listing after deletion"
+            exit 1
+          fi
+
+      # ── All-day event (specific future date) ──────────────────────────────
+      - name: "Test: all-day event (specific date)"
+        run: |
+          set -euo pipefail
+          NAME="ci-${{ github.run_id }}-allday-date"
+          TOMORROW=$(date -u -d "+1 day" +%Y-%m-%d)
+          START="$TOMORROW 00:00:00 +0000"
+          END="$TOMORROW 23:59:59 +0000"
+
+          cleanup() { $BIN gcal delete-event --name "$NAME" 2>/dev/null || true; }
+          trap cleanup EXIT
+
+          $BIN gcal new-event --name "$NAME" --description "CI date range test" --date "$TOMORROW"
+
+          if ! $BIN gcal event-list --start-time "$START" --end-time "$END" | grep -q "$NAME"; then
+            echo "FAIL: event not found when listing by explicit date range"
+            exit 1
+          fi
+
+          if ! $BIN gcal event-details --name "$NAME" --start-time "$START" --end-time "$END" | grep -q "$NAME"; then
+            echo "FAIL: event-details with date range did not return the event"
+            exit 1
+          fi
+
+          $BIN gcal delete-event --name "$NAME"
+
+          if $BIN gcal event-list --start-time "$START" --end-time "$END" | grep -q "$NAME"; then
+            echo "FAIL: event still present in date-range listing after deletion"
+            exit 1
+          fi
+
+      # ── Timed event ───────────────────────────────────────────────────────
+      - name: "Test: timed event"
+        run: |
+          set -euo pipefail
+          NAME="ci-${{ github.run_id }}-timed"
+          TODAY=$(date -u +%Y-%m-%d)
+          START="$TODAY 14:00:00 +0000"
+          END="$TODAY 15:00:00 +0000"
+
+          cleanup() { $BIN gcal delete-event --name "$NAME" 2>/dev/null || true; }
+          trap cleanup EXIT
+
+          $BIN gcal new-event \
+            --name "$NAME" \
+            --description "CI timed event test" \
+            --date "$TODAY" \
+            --start-time "$START" \
+            --end-time "$END"
+
+          if ! $BIN gcal event-list | grep -q "$NAME"; then
+            echo "FAIL: timed event not found in today's listing after creation"
+            exit 1
+          fi
+
+          if ! $BIN gcal event-details --name "$NAME" | grep -q "$NAME"; then
+            echo "FAIL: event-details did not return the timed event"
+            exit 1
+          fi
+
+          $BIN gcal delete-event --name "$NAME"
+
+          if $BIN gcal event-list | grep -q "$NAME"; then
+            echo "FAIL: timed event still present in today's listing after deletion"
+            exit 1
+          fi
+
+      # ── Weekly recurring series ────────────────────────────────────────────
+      - name: "Test: weekly recurring series"
+        run: |
+          set -euo pipefail
+          NAME="ci-${{ github.run_id }}-weekly"
+          TODAY=$(date -u +%Y-%m-%d)
+
+          cleanup() { $BIN gcal delete-event --name "$NAME" 2>/dev/null || true; }
+          trap cleanup EXIT
+
+          $BIN gcal new-event --name "$NAME" --description "CI weekly series test" --date "$TODAY" --freq weekly
+
+          if ! $BIN gcal event-list | grep -q "$NAME"; then
+            echo "FAIL: weekly series event not found in today's listing after creation"
+            exit 1
+          fi
+
+          $BIN gcal delete-event --name "$NAME"
+
+          if $BIN gcal event-list | grep -q "$NAME"; then
+            echo "FAIL: weekly series event still present in today's listing after deletion"
+            exit 1
+          fi
+
+      # ── Monthly recurring series ───────────────────────────────────────────
+      - name: "Test: monthly recurring series"
+        run: |
+          set -euo pipefail
+          NAME="ci-${{ github.run_id }}-monthly"
+          TODAY=$(date -u +%Y-%m-%d)
+
+          cleanup() { $BIN gcal delete-event --name "$NAME" 2>/dev/null || true; }
+          trap cleanup EXIT
+
+          $BIN gcal new-event --name "$NAME" --description "CI monthly series test" --date "$TODAY" --freq monthly
+
+          if ! $BIN gcal event-list | grep -q "$NAME"; then
+            echo "FAIL: monthly series event not found in today's listing after creation"
+            exit 1
+          fi
+
+          $BIN gcal delete-event --name "$NAME"
+
+          if $BIN gcal event-list | grep -q "$NAME"; then
+            echo "FAIL: monthly series event still present in today's listing after deletion"
+            exit 1
+          fi
