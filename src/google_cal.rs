@@ -1,6 +1,7 @@
 use crate::auth;
 use crate::time::{convert_date, convert_datetime, get_current_timezone, get_period};
 use chrono::{NaiveDate, NaiveDateTime};
+use clap::error::Result;
 use clap::{Args, Subcommand, ValueEnum};
 use google_calendar3::Error;
 use google_calendar3::api::{Event, EventDateTime, Events};
@@ -39,7 +40,7 @@ pub enum GcalCommands {
         #[arg(short, long)]
         description: Option<String>,
         /// Event date (e.g. "2024-01-15")
-        #[arg(short, long)]
+        #[arg(long)]
         date: Option<String>,
         /// Start time (e.g. "2024-01-15 09:00")
         #[arg(short, long)]
@@ -50,6 +51,18 @@ pub enum GcalCommands {
         /// Recurrence frequency
         #[arg(short, long)]
         freq: Option<SeriesArgs>,
+    },
+    /// Delete a calendar event
+    DeleteEvent {
+        /// Event title
+        #[arg(short, long)]
+        name: String,
+        /// Start time (e.g. "2024-01-15 09:00")
+        #[arg(short, long)]
+        start_time: Option<String>,
+        /// End time (e.g. "2024-01-15 10:00")
+        #[arg(short, long)]
+        end_time: Option<String>,
     },
 }
 
@@ -97,7 +110,11 @@ struct CalendarEvent {
     freq: Option<SeriesArgs>,
 }
 
-fn event_to_string(events: Events) -> StringOutput {
+fn event_to_string(event: Event) -> StringOutput {
+    Ok(format!("Event: {}\n", event.summary.unwrap_or_default()))
+}
+
+fn events_to_string(events: Events) -> StringOutput {
     let mut output = String::new();
     let events = events.items.unwrap_or_default();
     if events.is_empty() {
@@ -115,9 +132,32 @@ async fn get_event(
     name: String,
     start_time: Option<String>,
     end_time: Option<String>,
-) -> Result<StringOutput, anyhow::Error> {
+) -> Result<Event, anyhow::Error> {
+    match _get_event(hub, name, start_time, end_time).await {
+        Ok(events) => {
+            if events.items.is_none() {
+                Err(anyhow::anyhow!("No events found in calendar.".to_string()))
+            } else if events.items.iter().len() > 1 {
+                Err(anyhow::anyhow!(
+                    "The following events were found: {:?}, please provide more specific search parameters so only one event is found",
+                    events.items
+                ))
+            } else {
+                Ok(events.items.clone().unwrap().first().unwrap().clone())
+            }
+        }
+        Err(e) => Err(e),
+    }
+}
+
+async fn _get_event(
+    hub: auth::Hub,
+    name: String,
+    start_time: Option<String>,
+    end_time: Option<String>,
+) -> Result<Events, anyhow::Error> {
     let event_query = EventQuery {
-        name: name,
+        name,
         start_time: start_time.map(|t| convert_datetime(&t)).transpose()?,
         end_time: end_time.map(|t| convert_datetime(&t)).transpose()?,
     };
@@ -131,7 +171,8 @@ async fn get_event(
             .q(event_query.name.as_str())
             .doit()
             .await?;
-        Ok(event_to_string(events))
+        // Ok(event_to_string(events))
+        Ok(events)
     } else {
         let (_response, events) = hub
             .events()
@@ -139,7 +180,7 @@ async fn get_event(
             .q(event_query.name.as_str())
             .doit()
             .await?;
-        Ok(event_to_string(events))
+        Ok(events)
     }
 }
 
@@ -160,7 +201,20 @@ async fn get_events(
         .doit()
         .await?;
 
-    Ok(event_to_string(events))
+    Ok(events_to_string(events))
+}
+
+async fn get_event_details(
+    hub: auth::Hub,
+    name: String,
+    start_time: Option<String>,
+    end_time: Option<String>,
+) -> Result<StringOutput, anyhow::Error> {
+    let event_result = get_event(hub, name, start_time, end_time).await;
+    match event_result {
+        Ok(event) => Ok(event_to_string(event)),
+        Err(e) => Err(e),
+    }
 }
 
 async fn insert_event(hub: auth::Hub, event: Event, cal_id: &str) -> CalendarListEntryResponse {
@@ -213,6 +267,30 @@ fn create_event(event_details: CalendarEvent) -> Event {
     event
 }
 
+async fn delete_event(
+    hub: auth::Hub,
+    name: String,
+    start_time: Option<String>,
+    end_time: Option<String>,
+) -> Result<StringOutput, anyhow::Error> {
+    let event = get_event(hub.clone(), name.clone(), start_time, end_time).await?;
+
+    let results = hub
+        .events()
+        .delete("primary", event.id.unwrap().as_str())
+        .send_updates("all")
+        .send_notifications(true)
+        .doit()
+        .await;
+
+    match results {
+        Ok(_result) => Ok(Ok(
+            format!("Successfully deleted event {}", name).to_string()
+        )),
+        Err(e) => Err(e.into()),
+    }
+}
+
 async fn insert_new_event(
     hub: auth::Hub,
     name: String,
@@ -221,9 +299,9 @@ async fn insert_new_event(
     start_time: Option<String>,
     end_time: Option<String>,
     freq: Option<SeriesArgs>,
-) -> Result<StringOutput, anyhow::Error> {
+) -> Result<StringOutput, Error> {
     let cal_event = CalendarEvent {
-        name: name,
+        name,
         description: description.unwrap(),
         date: date.map(|d| convert_date(&d).unwrap()).unwrap(),
         start_time: start_time.map(|t| convert_datetime(&t).unwrap()),
@@ -234,7 +312,7 @@ async fn insert_new_event(
     let result = insert_event(hub, event, "primary").await;
     match result {
         Ok(_success) => Ok(Ok("Event added successfully!".to_string())),
-        Err(e) => Err(e.into()),
+        Err(e) => Err(e),
     }
 }
 
@@ -311,7 +389,7 @@ pub async fn get_calendar_service(args: GcalArgs) -> Result<String, anyhow::Erro
             name,
             start_time,
             end_time,
-        } => get_event(hub, name, start_time, end_time)
+        } => get_event_details(hub, name, start_time, end_time)
             .await?
             .map_err(|e| anyhow::anyhow!("{e}")),
         GcalCommands::NewEvent {
@@ -322,6 +400,13 @@ pub async fn get_calendar_service(args: GcalArgs) -> Result<String, anyhow::Erro
             end_time,
             freq,
         } => insert_new_event(hub, name, description, date, start_time, end_time, freq)
+            .await?
+            .map_err(|e| anyhow::anyhow!("{e}")),
+        GcalCommands::DeleteEvent {
+            name,
+            start_time,
+            end_time,
+        } => delete_event(hub, name, start_time, end_time)
             .await?
             .map_err(|e| anyhow::anyhow!("{e}")),
     }
