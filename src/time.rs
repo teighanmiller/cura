@@ -1,4 +1,19 @@
-use chrono::{DateTime, FixedOffset, NaiveDate, NaiveDateTime, Timelike, Utc};
+use chrono::{DateTime, FixedOffset, Local, NaiveDate, NaiveDateTime, Timelike, Utc};
+use clap::{Args, Subcommand};
+
+#[derive(Subcommand, Clone)]
+pub enum TimeCommands {
+    Time,
+    Date,
+    DateTime,
+}
+
+/// Time commands
+#[derive(Args, Clone)]
+pub struct TimeArgs {
+    #[command(subcommand)]
+    command: TimeCommands,
+}
 
 pub struct Period {
     pub min_time: DateTime<Utc>,
@@ -88,6 +103,33 @@ pub fn get_period(args: &[String]) -> Period {
         default_time()
     } else {
         get_utc_period(args[0].clone(), args[1].clone())
+    }
+}
+
+fn _get_datetime() -> DateTime<Local> {
+    Local::now()
+}
+
+fn get_datetime() -> String {
+    let datetime = _get_datetime();
+    datetime.format("%Y-%m-%d %H:%M:%S").to_string()
+}
+
+fn get_date() -> String {
+    let datetime = _get_datetime();
+    datetime.format("%Y-%m-%d").to_string()
+}
+
+fn get_time() -> String {
+    let datetime = _get_datetime();
+    datetime.format("%H:%M:%S").to_string()
+}
+
+pub async fn time_request(args: TimeArgs) -> Result<String, anyhow::Error> {
+    match args.command {
+        TimeCommands::DateTime => Ok(get_datetime()),
+        TimeCommands::Date => Ok(get_date()),
+        TimeCommands::Time => Ok(get_time()),
     }
 }
 
