@@ -11,6 +11,7 @@ enum Tool {
     Gcal(google_cal::GcalArgs),
     /// Search the web
     Web(web::WebArgs),
+    Time(time::TimeArgs),
 }
 
 #[derive(Parser)]
@@ -26,6 +27,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let results = match args.tool {
         Tool::Gcal(args) => google_cal::get_calendar_service(args).await?,
         Tool::Web(args) => web::websearch(args).await?,
+        Tool::Time(args) => time::time_request(args).await?,
     };
 
     println!("{}", results);
