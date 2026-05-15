@@ -14,6 +14,7 @@ It also works as a standalone productivity CLI for day-to-day terminal use — c
 
 - **Google Calendar** — list events for today or a custom time range, look up event details by name, and create all-day or timed events
 - **Web search** — query the web from the terminal via DuckDuckGo and get formatted results inline
+- **Time** — fetch the current local time, date, or datetime
 
 ## Planned features
 
@@ -103,6 +104,31 @@ cura gcal new-event --name "Team standup" --description "Daily sync" --date 2026
 | `--start-time` / `--end-time` (event creation) | `HH:MM:SS` | `09:00:00` |
 | `--start-time` / `--end-time` (event listing) | `YYYY-MM-DD HH:MM:SS ±HHMM` | `2026-04-24 09:00:00 +0000` |
 
+### Time
+
+**Get the current time:**
+```bash
+cura time time
+```
+
+**Get the current date:**
+```bash
+cura time date
+```
+
+**Get the current date and time:**
+```bash
+cura time date-time
+```
+
+All time commands return local time. Output formats:
+
+| Subcommand | Format | Example |
+|---|---|---|
+| `time` | `HH:MM:SS` | `14:30:00` |
+| `date` | `YYYY-MM-DD` | `2026-05-15` |
+| `date-time` | `YYYY-MM-DD HH:MM:SS` | `2026-05-15 14:30:00` |
+
 ### Web search
 
 **Basic search:**
@@ -128,7 +154,7 @@ src/
   auth.rs       — Google OAuth2 authentication and token caching
   google_cal.rs — Google Calendar API commands and response formatting
   web.rs        — Web search integration and output formatting
-  time.rs       — Date/time parsing utilities and period helpers
+  time.rs       — Time subcommands (current time/date/datetime) and date/time parsing utilities
 ```
 
 ## Running tests
