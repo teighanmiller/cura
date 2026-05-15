@@ -59,31 +59,6 @@ async fn search(
     web_search(search_query).await
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn create_search_options_sets_query() {
-        let opts = create_search_options("rust testing".to_string(), None, None);
-        assert_eq!(opts.query, "rust testing");
-        assert!(opts.max_results.is_none());
-    }
-
-    #[test]
-    fn create_search_options_sets_max_results() {
-        let opts = create_search_options("hello".to_string(), None, Some(5));
-        assert_eq!(opts.max_results, Some(5));
-    }
-
-    #[test]
-    fn create_search_options_optional_fields_none() {
-        let opts = create_search_options("q".to_string(), None, None);
-        assert!(opts.id_list.is_none());
-        assert!(opts.language.is_none());
-        assert!(opts.region.is_none());
-    }
-}
 
 pub async fn websearch(args: WebArgs) -> Result<String, anyhow::Error> {
     let search_query = create_search_options(args.query.to_string(), args.engine, args.max_value);

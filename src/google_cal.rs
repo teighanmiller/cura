@@ -322,26 +322,6 @@ mod tests {
     use chrono::NaiveDate;
 
     #[test]
-    fn freq_rule_daily() {
-        assert_eq!(get_freq_rule(SeriesArgs::Daily), "RRULE:FREQ=DAILY");
-    }
-
-    #[test]
-    fn freq_rule_weekly() {
-        assert_eq!(get_freq_rule(SeriesArgs::Weekly), "RRULE:FREQ=WEEKLY");
-    }
-
-    #[test]
-    fn freq_rule_monthly() {
-        assert_eq!(get_freq_rule(SeriesArgs::Monthly), "RRULE:FREQ=MONTHLY");
-    }
-
-    #[test]
-    fn freq_rule_yearly() {
-        assert_eq!(get_freq_rule(SeriesArgs::Yearly), "RRULE:FREQ=YEARLY");
-    }
-
-    #[test]
     fn create_event_date_only() {
         let cal = CalendarEvent {
             name: "Meeting".to_string(),

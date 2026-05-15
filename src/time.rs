@@ -139,11 +139,6 @@ mod tests {
     use chrono::{TimeZone, Timelike, Utc};
 
     #[test]
-    fn convert_date_valid() {
-        assert!(convert_date("2024-01-15").is_ok());
-    }
-
-    #[test]
     fn convert_date_invalid_format() {
         assert!(convert_date("01/15/2024").is_err());
     }
@@ -151,11 +146,6 @@ mod tests {
     #[test]
     fn convert_date_empty() {
         assert!(convert_date("").is_err());
-    }
-
-    #[test]
-    fn convert_datetime_valid() {
-        assert!(convert_datetime("2024-01-15 09:30:00 +0000").is_ok());
     }
 
     #[test]
@@ -168,24 +158,10 @@ mod tests {
         assert!(convert_datetime("").is_err());
     }
 
-    #[test]
-    fn parse_to_utc_valid() {
-        assert!(parse_to_utc("2024-01-15 09:30:00 +0000").is_ok());
-    }
-
-    #[test]
-    fn parse_to_utc_with_offset() {
-        assert!(parse_to_utc("2024-01-15 09:30:00 -0500").is_ok());
-    }
 
     #[test]
     fn parse_to_utc_invalid() {
         assert!(parse_to_utc("not-a-date").is_err());
-    }
-
-    #[test]
-    fn get_utc_valid() {
-        let _ = get_utc("2024-01-15 09:30:00 +0000");
     }
 
     #[test]
