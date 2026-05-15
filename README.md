@@ -27,6 +27,9 @@ It also works as a standalone productivity CLI for day-to-day terminal use — c
 - **Filesystem access** — file retrieval and organization operations to support context-fetching workflows in the agent
 - **Configurable output formats** — structured output modes (JSON, table, plain text) to better suit agent parsing vs. human reading
 
+## Errors
+- **gcal** - the --date flag must be used when creating a new event or an unwrap error occurs.
+
 ## Tech stack
 
 | Dependency | Purpose |
@@ -98,7 +101,7 @@ cura gcal new-event --name "Team standup" --description "Daily sync" --date 2026
 
 **Create a recurring event:**
 ```bash
-cura gcal new-event --name "Weekly Standup" --description "Team sync" --date 2026-05-19 --start-time "2026-05-19 09:00:00 -0700" --end-time "2026-05-19 09:30:00 -0700" --freq weekly
+cura gcal new-event --name "Weekly Standup" --description "Team sync" -date 2026-05-19 --start-time "2026-05-19 09:00:00 -0700" --end-time "2026-05-19 09:30:00 -0700" --freq weekly
 ```
 
 Supported `--freq` values: `daily`, `weekly`, `monthly`, `yearly`.
