@@ -12,14 +12,14 @@ It also works as a standalone productivity CLI for day-to-day terminal use — c
 
 ## Features
 
-- **Google Calendar** — list events for today or a custom time range, look up event details by name, and create all-day or timed events
+- **Google Calendar** — list events for today or a custom time range, look up event details by name, create all-day, timed, or recurring events, and delete events
 - **Web search** — query the web from the terminal via DuckDuckGo and get formatted results inline
 
 ## Planned features
 
 - **Multi-provider search** — pluggable search engine backend with support for additional providers beyond DuckDuckGo
 - **Search result re-ranking** — relevance scoring to surface higher-quality results for agent consumption
-- **Full calendar event management** — event editing and deletion to complement existing create/read operations
+- **Event editing** — update existing event details (title, time, description)
 - **Multi-calendar support** — configurable calendar targeting rather than defaulting to the primary calendar
 - **Google Tasks integration** — task creation, listing, and completion via the Google Tasks API
 - **Gmail integration** — read and send email to expand the agent's communication capabilities
@@ -92,16 +92,34 @@ cura gcal new-event --name "Conference" --description "Annual company conf" --da
 
 **Create a timed event:**
 ```bash
-cura gcal new-event --name "Team standup" --description "Daily sync" --date 2026-04-24 --start-time "09:00:00" --end-time "09:30:00"
+cura gcal new-event --name "Team standup" --description "Daily sync" --date 2026-04-24 --start-time "2026-04-24 09:00:00 -0700" --end-time "2026-04-24 09:30:00 -0700"
 ```
+
+**Create a recurring event:**
+```bash
+cura gcal new-event --name "Weekly Standup" --description "Team sync" --date 2026-05-19 --start-time "2026-05-19 09:00:00 -0700" --end-time "2026-05-19 09:30:00 -0700" --freq weekly
+```
+
+Supported `--freq` values: `daily`, `weekly`, `monthly`, `yearly`.
+
+**Delete an event:**
+```bash
+cura gcal delete-event --name "Weekly Standup"
+```
+
+If the name matches more than one event, narrow the search with `--start-time` and `--end-time`:
+```bash
+cura gcal delete-event --name "Weekly Standup" --start-time "2026-05-19 00:00:00 -0700" --end-time "2026-05-19 23:59:59 -0700"
+```
+
+> **Note:** Deleting a recurring event by name removes the entire series.
 
 #### Date and time formats
 
 | Field | Format | Example |
 |---|---|---|
 | `--date` | `YYYY-MM-DD` | `2026-04-24` |
-| `--start-time` / `--end-time` (event creation) | `HH:MM:SS` | `09:00:00` |
-| `--start-time` / `--end-time` (event listing) | `YYYY-MM-DD HH:MM:SS ±HHMM` | `2026-04-24 09:00:00 +0000` |
+| `--start-time` / `--end-time` | `YYYY-MM-DD HH:MM:SS ±HHMM` | `2026-04-24 09:00:00 -0700` |
 
 ### Web search
 
